@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>增强版汇率换算工具</title>
+    <style>
+        :root {
+            --primary-color: #007aff;
+            --bg-color: rgba(255, 255, 255, 0.85);
+            --shadow-color: rgba(0, 0, 0, 0.15);
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+        #bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            z-index: -2;
+            transition: background-image 1s ease-in-out;
+        }
+        #bg-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            z-index: -1;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+        }
+        .converter-wrapper {
+            background: var(--bg-color);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            width: 100%;
+            max-width: 600px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+        h1 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 1.6rem;
+        }
+        #settings-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            line-height: 1;
+            transition: background-color 0.2s;
+        }
+        #settings-btn:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        #currency-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        .currency-card {
+            display: grid;
+            grid-template-columns: 50px 1fr;
+            align-items: center;
+            gap: 1rem;
+        }
+        .currency-label {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .currency-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1.2rem;
+            text-align: right;
+            background-color: #fff;
+            box-sizing: border-box;
+            -moz-appearance: textfield;
+        }
+        .currency-input::-webkit-outer-spin-button,
+        .currency-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .currency-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+        }
+        .rmb-capital-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .rmb-capital-section label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        #capital-result {
+            padding: 0.8rem;
+            background-color: #f0f2f5;
+            border-radius: 8px;
+            min-height: 20px;
+            word-wrap: break-word;
+            font-weight: 500;
+        }
+        .rate-info {
+            font-size: 0.8rem;
+            color: #555;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        footer a { color: #fff; font-weight: 600; }
+        
+        /* Settings Modal Styles */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #settings-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .modal-header h2 { margin: 0; }
+        #currency-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        .currency-option { display: block; }
+        .modal-footer {
+            margin-top: 2rem;
+            text-align: right;
+        }
+        #save-settings {
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-container"></div>
+
+    <div class="main-container">
+        <div class="converter-wrapper">
+            <header>
+                <h1>汇率工具</h1>
+                <button id="settings-btn" title="设置常用货币">⚙️</button>
+            </header>
+
+            <div id="currency-grid">
+                </div>
+            
+            <div class="rmb-capital-section">
+                <label for="capital-result">人民币大写</label>
+                <div id="capital-result"></div>
+            </div>
+
+            <div id="rate-info" class="rate-info"></div>
+        </div>
+        <footer>
+            背景由 <a href="https://www.bing.com" target="_blank">Bing</a> 提供 | 汇率API by <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
+        </footer>
+    </div>
+    
+    <div id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>自定义常用货币</h2>
+                <button id="close-modal" style="background:none; border:none; font-size: 1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <p>请选择您想在主页显示的货币（建议3-6种）。</p>
+            <div id="currency-options">
+                </div>
+            <div class="modal-footer">
+                <button id="save-settings">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const API_KEY = '87a8d7f1b40d9dbcd30a96a2';
+        const ALL_CURRENCIES = {
+            'CNY': '人民币', 'USD': '美元', 'EUR': '欧元', 'JPY': '日元', 'HKD': '港币',
+            'GBP': '英镑', 'AUD': '澳元', 'CAD': '加元', 'SGD': '新加坡元', 'CHF': '瑞士法郎',
+            'TWD': '新台币', 'KRW': '韩元', 'THB': '泰铢', 'MOP': '澳门元', 'MYR': '马来西亚林吉特'
+        };
+        
+        let rates = {};
+        let activeCurrencies = [];
+
+        const currencyGrid = document.getElementById('currency-grid');
+        const capitalResult = document.getElementById('capital-result');
+        const rateInfo = document.getElementById('rate-info');
+        const bgContainer = document.getElementById('bg-container');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const saveSettingsBtn = document.getElementById('save-settings');
+        const currencyOptionsContainer = document.getElementById('currency-options');
+
+        // --- 主逻辑 ---
+
+        window.onload = async () => {
+            loadSettings();
+            await fetchBingImage();
+            await fetchRates();
+        };
+        
+        async function fetchRates() {
+            rateInfo.textContent = '正在加载最新汇率...';
+            try {
+                const response = await fetch(`https://v6.exchangerate-api.com/v6/${API_KEY}/latest/CNY`);
+                if (!response.ok) throw new Error('网络请求失败');
+                const data = await response.json();
+
+                if (data.result === 'success') {
+                    rates = data.conversion_rates;
+                    rates['CNY'] = 1; // 基准货币
+                    const lastUpdate = new Date(data.time_last_update_utc).toLocaleString();
+                    rateInfo.textContent = `汇率数据更新于: ${lastUpdate}`;
+                    renderCurrencyGrid();
+                    populateSettingsModal();
+                } else {
+                    rateInfo.textContent = `API错误: ${data['error-type']}`;
+                }
+            } catch (error) {
+                rateInfo.textContent = '汇率加载失败，请检查网络连接。';
+                console.error(error);
+            }
+        }
+
+        function renderCurrencyGrid() {
+            currencyGrid.innerHTML = '';
+            activeCurrencies.forEach(code => {
+                const card = document.createElement('div');
+                card.className = 'currency-card';
+                card.innerHTML = `
+                    <div class="currency-label">${code}</div>
+                    <input type="number" class="currency-input" data-currency="${code}" placeholder="${ALL_CURRENCIES[code]}">
+                `;
+                currencyGrid.appendChild(card);
+            });
+            // 渲染后添加事件监听
+            document.querySelectorAll('.currency-input').forEach(input => {
+                input.addEventListener('input', handleConversion);
+            });
+        }
+        
+        function handleConversion(event) {
+            const sourceInput = event.target;
+            const sourceCurrency = sourceInput.dataset.currency;
+            const sourceValue = parseFloat(sourceInput.value);
+
+            if (isNaN(sourceValue) || sourceValue === 0) {
+                clearAllInputs(sourceInput);
+                if (sourceCurrency === 'CNY') convertRmbToCapital('');
+                return;
+            }
+
+            // 1. 将输入金额统一换算成基准货币(CNY)
+            const cnyBaseValue = sourceValue / rates[sourceCurrency];
+
+            // 2. 根据基准值更新所有输入框
+            document.querySelectorAll('.currency-input').forEach(input => {
+                const targetCurrency = input.dataset.currency;
+                if (input !== sourceInput) {
+                    const targetValue = cnyBaseValue * rates[targetCurrency];
+                    // 根据金额大小决定小数位数
+                    let decimals = targetValue > 1000 ? 2 : 4;
+                    input.value = targetValue.toFixed(decimals);
+                }
+            });
+
+            // 3. 更新人民币大写
+            if (sourceCurrency === 'CNY') {
+                convertRmbToCapital(sourceValue);
+            } else {
+                convertRmbToCapital(cnyBaseValue);
+            }
+        }
+        
+        function clearAllInputs(exceptInput = null) {
+            document.querySelectorAll('.currency-input').forEach(input => {
+                if (input !== exceptInput) input.value = '';
+            });
+        }
+        
+        // --- 人民币大写转换 ---
+        function convertRmbToCapital(number) {
+            let n = parseFloat(number);
+            if (isNaN(n) || n === 0) {
+                capitalResult.textContent = '';
+                return;
+            }
+            if (n > 999999999999.99) {
+                capitalResult.textContent = '错误：金额过大。';
+                return;
+            }
+            const digit = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+            const unit = [['元', '万', '亿'], ['', '拾', '佰', '仟']];
+            const head = n < 0 ? '负' : '';
+            n = Math.abs(n);
+            let s = '';
+            const fraction = Math.round(n * 100) % 100;
+            if (fraction === 0) {
+                s = '整';
+            } else {
+                s += digit[Math.floor(fraction / 10)] + '角';
+                s += digit[fraction % 10] + '分';
+                s = s.replace(/零角零分$/, '整').replace(/零[角分]/, '零').replace(/零$/, '整');
+            }
+            n = Math.floor(n);
+            for (let i = 0; i < unit[0].length && n > 0; i++) {
+                let p = '';
+                for (let j = 0; j < unit[1].length && n > 0; j++) {
+                    p = digit[n % 10] + unit[1][j] + p;
+                    n = Math.floor(n / 10);
+                }
+                s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
+            }
+            capitalResult.textContent = head + s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零').replace(/^整$/, '零元整');
+        }
+
+        // --- 背景图 ---
+        async function fetchBingImage() {
+            try {
+                // 使用一个代理来避免CORS问题
+                const response = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN'));
+                const data = await response.json();
+                const content = JSON.parse(data.contents);
+                const imageUrl = 'https://www.bing.com' + content.images[0].url;
+                bgContainer.style.backgroundImage = `url(${imageUrl})`;
+            } catch (error) {
+                console.error("无法加载必应背景图:", error);
+                bgContainer.style.backgroundColor = '#2c3e50'; // Fallback color
+            }
+        }
+        
+        // --- 设置功能 ---
+        function loadSettings() {
+            const savedCurrencies = localStorage.getItem('userCurrencies');
+            if (savedCurrencies) {
+                activeCurrencies = JSON.parse(savedCurrencies);
+            } else {
+                // 默认货币
+                activeCurrencies = ['CNY', 'USD', 'JPY', 'HKD'];
+            }
+        }
+
+        function saveSettings() {
+            const newSelection = [];
+            document.querySelectorAll('#currency-options input:checked').forEach(input => {
+                newSelection.push(input.value);
+            });
+
+            if (newSelection.length < 2) {
+                alert('请至少选择两种货币。');
+                return;
+            }
+
+            localStorage.setItem('userCurrencies', JSON.stringify(newSelection));
+            activeCurrencies = newSelection;
+            renderCurrencyGrid(); // 重新渲染主页面
+            settingsModal.classList.remove('visible');
+        }
+
+        function populateSettingsModal() {
+            currencyOptionsContainer.innerHTML = '';
+            for (const code in ALL_CURRENCIES) {
+                const label = document.createElement('label');
+                label.className = 'currency-option';
+                const isChecked = activeCurrencies.includes(code) ? 'checked' : '';
+                label.innerHTML = `
+                    <input type="checkbox" value="${code}" ${isChecked}>
+                    ${code} (${ALL_CURRENCIES[code]})
+                `;
+                currencyOptionsContainer.appendChild(label);
+            }
+        }
+
+        settingsBtn.addEventListener('click', () => settingsModal.classList.add('visible'));
+        closeModalBtn.addEventListener('click', () => settingsModal.classList.remove('visible'));
+        saveSettingsBtn.addEventListener('click', saveSettings);
+        
+    </script>
+</body>
+</html>
