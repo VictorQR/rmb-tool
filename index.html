@@ -29,7 +29,7 @@
             background-repeat: no-repeat;
             z-index: -2;
             transition: background-image 1s ease-in-out;
-            background-color: #2c3e50;
+            background-color: #2c3e50; /* API加载失败时的默认背景色 */
         }
         #bg-container::before {
             content: '';
@@ -218,12 +218,6 @@
             'TWD': '新台币', 'KRW': '韩元', 'THB': '泰铢', 'MOP': '澳门元', 'MYR': '马来西亚林吉特'
         };
 
-        const FALLBACK_IMAGES = [
-            'https://api.kdcc.cn/img/sina.php',
-            'https://t.alcy.cc/pc',
-            'https://source.unsplash.com/1600x900/?nature,water,landscape'
-        ];
-
         let rates = {};
         let activeCurrencies = [];
 
@@ -247,35 +241,34 @@
         });
         
         async function loadBingWallpaper() {
-            // Reverted: Directly fetch from the specified API.
-            const BING_API_URL = 'https://i18.net/bing.php?info=true';
+            // 直接请求Bing官方API。
+            // 警告：此请求很可能会因为浏览器的CORS安全策略而失败。
+            const BING_OFFICIAL_API_URL = 'https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN';
+
             try {
-                const response = await fetch(BING_API_URL);
+                const response = await fetch(BING_OFFICIAL_API_URL);
                 if (!response.ok) throw new Error('Network response was not ok.');
                 
                 const data = await response.json();
                 
-                if (data && data.url && data.copyright) {
-                    bgContainer.style.backgroundImage = `url(${data.url})`;
+                if (data && data.images && data.images.length > 0) {
+                    const wallpaper = data.images[0];
+                    const imageUrl = 'https://cn.bing.com' + wallpaper.url;
+                    
+                    bgContainer.style.backgroundImage = `url(${imageUrl})`;
+
                     if (wallpaperCredit) {
-                        // Updated attribution to include a link to the provider.
-                        wallpaperCredit.innerHTML = `背景由 <a href="https://www.i18.net/" target="_blank">图汇API</a> 提供: ${data.copyright}`;
+                        wallpaperCredit.innerHTML = `背景由 <a href="https://www.bing.com" target="_blank">Bing</a> 提供: ${wallpaper.copyright}`;
                     }
                 } else {
-                    throw new Error('Invalid JSON data from API.');
+                    throw new Error('Invalid JSON data from Bing API.');
                 }
             } catch (error) {
-                console.error("Failed to load Bing wallpaper, using fallback.", error);
-                loadFallbackBackgroundImage();
-            }
-        }
-
-        function loadFallbackBackgroundImage() {
-            const randomIndex = Math.floor(Math.random() * FALLBACK_IMAGES.length);
-            const imageUrl = FALLBACK_IMAGES[randomIndex];
-            bgContainer.style.backgroundImage = `url(${imageUrl})`;
-            if (wallpaperCredit) {
-                wallpaperCredit.textContent = '背景由随机API提供';
+                console.error("直接请求Bing API失败。这通常是预料之中的CORS跨域问题。", error);
+                bgContainer.style.backgroundImage = 'none'; // 确保显示默认背景色
+                if (wallpaperCredit) {
+                    wallpaperCredit.innerHTML = `背景由 <a href="https://www.bing.com" target="_blank">Bing</a> 提供 (加载失败)`;
+                }
             }
         }
 
