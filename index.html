@@ -7,7 +7,7 @@
     <style>
         :root {
             --primary-color: #007aff;
-            --bg-color: rgba(255, 255, 255, 0.85);
+            --bg-color: rgba(255, 255, 255, 0.8);
             --shadow-color: rgba(0, 0, 0, 0.15);
             --text-color: #333;
             --border-color: #ddd;
@@ -29,14 +29,13 @@
             background-repeat: no-repeat;
             z-index: -2;
             transition: background-image 1s ease-in-out;
-            /* 添加一个默认背景色，防止图片加载慢时背景突变 */
             background-color: #2c3e50;
         }
         #bg-container::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.1); 
             backdrop-filter: blur(8px);
             z-index: -1;
         }
@@ -54,9 +53,9 @@
             box-shadow: 0 10px 40px var(--shadow-color);
             width: 100%;
             max-width: 600px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
         }
         header {
             display: flex;
@@ -104,8 +103,7 @@
         }
         .currency-input:disabled { background-color: #f0f2f5; cursor: not-allowed; }
         .currency-input::-webkit-outer-spin-button, .currency-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
+            -webkit-appearance: none; margin: 0;
         }
         .currency-input:focus {
             outline: none;
@@ -135,7 +133,7 @@
             color: #555;
             text-align: center;
             margin-top: 1.5rem;
-            min-height: 1.2em; /* 避免内容加载时页面跳动 */
+            min-height: 1.2em;
         }
         footer {
             margin-top: 2rem;
@@ -146,7 +144,6 @@
         }
         footer a { color: #fff; font-weight: 600; }
         
-        /* Settings Modal Styles (未改变, 保持原样) */
         #settings-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
@@ -187,19 +184,15 @@
                 <h1>汇率工具</h1>
                 <button id="settings-btn" title="设置常用货币">⚙️</button>
             </header>
-
-            <div id="currency-grid">
-                </div>
-            
+            <div id="currency-grid"></div>
             <div class="rmb-capital-section">
                 <label for="capital-result">人民币大写</label>
                 <div id="capital-result"></div>
             </div>
-
             <div id="rate-info" class="rate-info">正在初始化...</div>
         </div>
         <footer>
-            汇率API by <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
+            <span id="wallpaper-credit"></span> | 汇率API by <a href="https://www.exchangerate-api.com" target="_blank">ExchangeRate-API</a>
         </footer>
     </div>
     
@@ -217,21 +210,18 @@
         </div>
     </div>
 
-
     <script>
-        const API_KEY = '87a8d7f1b40d9dbcd30a96a2'; // 警告：API密钥暴露在前端是不安全的
+        const API_KEY = '87a8d7f1b40d9dbcd30a96a2';
         const ALL_CURRENCIES = {
             'CNY': '人民币', 'USD': '美元', 'EUR': '欧元', 'JPY': '日元', 'HKD': '港币',
             'GBP': '英镑', 'AUD': '澳元', 'CAD': '加元', 'SGD': '新加坡元', 'CHF': '瑞士法郎',
             'TWD': '新台币', 'KRW': '韩元', 'THB': '泰铢', 'MOP': '澳门元', 'MYR': '马来西亚林吉特'
         };
-        
-        // 优化：将动态背景图改为静态或稳定的图片API列表，消除最慢的网络请求
-        const BACKGROUND_IMAGES = [
-            'https://api.kdcc.cn/img/bing.php', // 一些提供bing每日图片的第三方api
+
+        const FALLBACK_IMAGES = [
             'https://api.kdcc.cn/img/sina.php',
-            'https://t.alcy.cc/pc', // 另一个随机图片api
-            'https://source.unsplash.com/1600x900/?nature,water' // Unsplash的随机图片
+            'https://t.alcy.cc/pc',
+            'https://source.unsplash.com/1600x900/?nature,water,landscape'
         ];
 
         let rates = {};
@@ -246,18 +236,49 @@
         const closeModalBtn = document.getElementById('close-modal');
         const saveSettingsBtn = document.getElementById('save-settings');
         const currencyOptionsContainer = document.getElementById('currency-options');
+        const wallpaperCredit = document.getElementById('wallpaper-credit');
 
-        // --- 主逻辑 ---
-
-        // 使用 DOMContentLoaded 替代 window.onload，让页面尽快响应
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
-            loadStaticBackgroundImage(); // 使用新的背景图加载函数
-            renderCurrencyGridSkeleton(); // 立即渲染UI骨架
-            fetchRates(); // 在UI显示后，异步获取汇率
+            loadBingWallpaper();
+            renderCurrencyGridSkeleton();
+            fetchRates();
             populateSettingsModal();
         });
         
+        async function loadBingWallpaper() {
+            // Reverted: Directly fetch from the specified API.
+            const BING_API_URL = 'https://i18.net/bing.php?info=true';
+            try {
+                const response = await fetch(BING_API_URL);
+                if (!response.ok) throw new Error('Network response was not ok.');
+                
+                const data = await response.json();
+                
+                if (data && data.url && data.copyright) {
+                    bgContainer.style.backgroundImage = `url(${data.url})`;
+                    if (wallpaperCredit) {
+                        // Updated attribution to include a link to the provider.
+                        wallpaperCredit.innerHTML = `背景由 <a href="https://www.i18.net/" target="_blank">图汇API</a> 提供: ${data.copyright}`;
+                    }
+                } else {
+                    throw new Error('Invalid JSON data from API.');
+                }
+            } catch (error) {
+                console.error("Failed to load Bing wallpaper, using fallback.", error);
+                loadFallbackBackgroundImage();
+            }
+        }
+
+        function loadFallbackBackgroundImage() {
+            const randomIndex = Math.floor(Math.random() * FALLBACK_IMAGES.length);
+            const imageUrl = FALLBACK_IMAGES[randomIndex];
+            bgContainer.style.backgroundImage = `url(${imageUrl})`;
+            if (wallpaperCredit) {
+                wallpaperCredit.textContent = '背景由随机API提供';
+            }
+        }
+
         async function fetchRates() {
             rateInfo.textContent = '正在加载最新汇率...';
             try {
@@ -270,7 +291,6 @@
                     rates['CNY'] = 1;
                     const lastUpdate = new Date(data.time_last_update_utc).toLocaleString();
                     rateInfo.textContent = `汇率数据更新于: ${lastUpdate}`;
-                    // 汇率加载成功后，激活输入框
                     document.querySelectorAll('.currency-input').forEach(input => input.disabled = false);
                 } else {
                     rateInfo.textContent = `API错误: ${data['error-type']}`;
@@ -281,23 +301,16 @@
             }
         }
 
-        // 先渲染UI骨架，提供即时反馈
         function renderCurrencyGridSkeleton() {
             currencyGrid.innerHTML = '';
-            // 使用 DocumentFragment 提高批量添加元素的性能
             const fragment = document.createDocumentFragment();
             activeCurrencies.forEach(code => {
                 const card = document.createElement('div');
                 card.className = 'currency-card';
-                card.innerHTML = `
-                    <div class="currency-label">${code}</div>
-                    <input type="number" class="currency-input" data-currency="${code}" placeholder="${ALL_CURRENCIES[code]}" disabled>
-                `; // 默认禁用，等待汇率加载
+                card.innerHTML = `<div class="currency-label">${code}</div><input type="number" class="currency-input" data-currency="${code}" placeholder="${ALL_CURRENCIES[code]}" disabled>`;
                 fragment.appendChild(card);
             });
             currencyGrid.appendChild(fragment);
-
-            // 事件监听可以提前绑定
             document.querySelectorAll('.currency-input').forEach(input => {
                 input.addEventListener('input', handleConversion);
             });
@@ -307,17 +320,13 @@
             const sourceInput = event.target;
             const sourceCurrency = sourceInput.dataset.currency;
             const sourceValue = parseFloat(sourceInput.value);
-
-            if (Object.keys(rates).length === 0) return; // 防止在汇率加载完成前进行计算
-
+            if (Object.keys(rates).length === 0) return;
             if (isNaN(sourceValue) || sourceValue === 0) {
                 clearAllInputs(sourceInput);
                 if (sourceCurrency === 'CNY') convertRmbToCapital('');
                 return;
             }
-
             const cnyBaseValue = sourceValue / rates[sourceCurrency];
-
             document.querySelectorAll('.currency-input').forEach(input => {
                 if (input === sourceInput) return;
                 const targetCurrency = input.dataset.currency;
@@ -325,7 +334,6 @@
                 let decimals = targetValue > 1000 ? 2 : 4;
                 input.value = targetValue.toFixed(decimals);
             });
-
             if (sourceCurrency === 'CNY') {
                 convertRmbToCapital(sourceValue);
             } else {
@@ -339,16 +347,13 @@
             });
         }
         
-        // --- 人民币大写转换 (未改变) ---
         function convertRmbToCapital(number) {
             let n = parseFloat(number);
             if (isNaN(n) || n === 0) {
-                capitalResult.textContent = '';
-                return;
+                capitalResult.textContent = ''; return;
             }
             if (n > 999999999999.99) {
-                capitalResult.textContent = '错误：金额过大。';
-                return;
+                capitalResult.textContent = '错误：金额过大。'; return;
             }
             const digit = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
             const unit = [['元', '万', '亿'], ['', '拾', '佰', '仟']];
@@ -374,15 +379,7 @@
             }
             capitalResult.textContent = head + s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零').replace(/^整$/, '零元整');
         }
-
-        // 新的背景图加载函数
-        function loadStaticBackgroundImage() {
-            const randomIndex = Math.floor(Math.random() * BACKGROUND_IMAGES.length);
-            const imageUrl = BACKGROUND_IMAGES[randomIndex];
-            bgContainer.style.backgroundImage = `url(${imageUrl})`;
-        }
         
-        // --- 设置功能 (逻辑微调) ---
         function loadSettings() {
             const savedCurrencies = localStorage.getItem('userCurrencies');
             activeCurrencies = savedCurrencies ? JSON.parse(savedCurrencies) : ['CNY', 'USD', 'JPY', 'HKD'];
@@ -390,20 +387,14 @@
 
         function saveSettings() {
             const newSelection = Array.from(document.querySelectorAll('#currency-options input:checked')).map(input => input.value);
-
             if (newSelection.length < 2) {
-                alert('请至少选择两种货币。');
-                return;
+                alert('请至少选择两种货币。'); return;
             }
-
             localStorage.setItem('userCurrencies', JSON.stringify(newSelection));
             activeCurrencies = newSelection;
-            
-            // 保存后，重新渲染骨架并重新获取汇率
             renderCurrencyGridSkeleton(); 
             fetchRates();
-            populateSettingsModal(); // 更新弹窗内的选中状态
-
+            populateSettingsModal();
             settingsModal.classList.remove('visible');
         }
 
@@ -414,10 +405,7 @@
                 const label = document.createElement('label');
                 label.className = 'currency-option';
                 const isChecked = activeCurrencies.includes(code) ? 'checked' : '';
-                label.innerHTML = `
-                    <input type="checkbox" value="${code}" ${isChecked}>
-                    ${code} (${ALL_CURRENCIES[code]})
-                `;
+                label.innerHTML = `<input type="checkbox" value="${code}" ${isChecked}> ${code} (${ALL_CURRENCIES[code]})`;
                 fragment.appendChild(label);
             }
             currencyOptionsContainer.appendChild(fragment);
@@ -426,7 +414,6 @@
         settingsBtn.addEventListener('click', () => settingsModal.classList.add('visible'));
         closeModalBtn.addEventListener('click', () => settingsModal.classList.remove('visible'));
         saveSettingsBtn.addEventListener('click', saveSettings);
-        
     </script>
 </body>
 </html>
